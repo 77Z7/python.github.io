@@ -1,4 +1,5 @@
 https://wikidocs.net/13 #점프투파이썬 교재 사이트
+https://github.com/namjaeyoon/python.dojang
 
 ##파일 저장##
 텍스트파일 = open('임시파일.txt', 'w')
