@@ -1,7 +1,8 @@
 https://wikidocs.net/13 #점프투파이썬 교재 사이트
 https://github.com/namjaeyoon/python.dojang
+https://zz1-hyunn.tistory.com/139 #워드, 태그 시각화
 
-##파일 저장##
+##파일 저장## 
 텍스트파일 = open('임시파일.txt', 'w')
 텍스트파일.write('월납입 :' '\n')
 텍스트파일.write('월이자 :' '\n')
