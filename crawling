@@ -114,3 +114,12 @@ for image in images:
         pass
 
 driver.close()
+
+
+-------------------------------------------------------------
+pandas
+
+https://blog.naver.com/PostView.naver?blogId=ytlee64&logNo=222498067334
+
+https://hmkim312.github.io/posts/%ED%81%AC%EB%A1%A4%EB%A7%81(Crawling)_%EA%B8%B0%EC%B4%88(2)/
+
