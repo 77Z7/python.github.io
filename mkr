@@ -1,0 +1,107 @@
+import pandas as pd
+import os
+
+df_plant = pd.read_excel('D:\\Python\\AutoBOM\\data\\Suffix Master_20230821_Plant.xls')
+df_region = pd.read_excel('D:\\Python\\AutoBOM\\data\\Suffix Master_20230821_Region.xls')
+
+# 검증할 모델 리스트 삽입
+# ['Model_suffix']열에 결측치 제거
+
+df_data = pd.read_excel('D:\\Python\\AutoBOM\\data\\data_list.xlsx')
+df_data = df_data.dropna(subset = ['Model_Suffix'])
+
+# Model_suffix의 값만 추출하고 그 값을 List로 만드는 과정
+
+df_data['Model_Suffix'].values
+model_suffix_list = df_data['Model_Suffix'].values.tolist()
+model_suffix_list
+
+# 각각의 데이터를 보관할 List 생성
+
+inch_list = []
+design_list = []
+region_list = []
+market_list = []
+plant_list = []
+side_PN_list = []
+
+# 반복문(for문)을 활용한 여러개 모델 검증 후 엑셀파일로 다시 추출
+
+for model_suffix in model_suffix_list:
+    
+    model, suffix = model_suffix.split('.')
+    inch = model[0:2]
+    design_suffix = model[-1]
+    country_suffix = suffix[1:3]
+    plant_suffix = suffix[-1]
+    region = df_region.iloc[df_region[df_region['Suffix_23'].str.contains(country_suffix)].index[0]][3]
+    market = df_region.iloc[df_region[df_region['Suffix_23'].str.contains(country_suffix)].index[0]][4]
+    buyer = df_region.iloc[df_region[df_region['Suffix_23'].str.contains(country_suffix)].index[0]][5]
+    
+    if plant_suffix == 'K':
+    
+        plant = df_plant.iloc[df_plant[df_plant['Suffix_23'].str.contains(country_suffix)].index[0]][4]
+        plant_remark = df_plant.iloc[df_plant[df_plant['Suffix_23'].str.contains(country_suffix)].index[0]][5]
+    
+    else:
+    
+        plant = df_plant.iloc[df_plant[df_plant['Suffix_7'].str.contains(plant_suffix)].index[0]][4]
+        plant_remark = df_plant.iloc[df_plant[df_plant['Suffix_7'].str.contains(plant_suffix)].index[0]][5]
+
+    # 자동입력 Logic 파일 입력
+    
+    df_side_label = pd.read_excel('D:\\Python\\AutoBOM\\data\\Auto_creat_side_AV_label.xlsx')
+
+    # Region 조건에 맞는 열만 남기기(df_new에 저장)
+    # 조건 : 입력된 모델의 region 정보가 맞는 거랑 '-'가 입력된 값
+
+    df_new = df_side_label[df_side_label['Region'].str.contains(region, na = False) | df_side_label['Region'].str.contains('-')]
+
+    # Suffix 조건에 맞는 열만 남기기(df_new1에 저장)
+    # 조건 : 입력된 모델의 country_suffix 정보가 맞는 거랑 '-'가 입력된 값
+
+    df_new1 = df_new.loc[df_new.Suffix.str.contains(country_suffix) | df_new.Suffix.str.contains('-')]
+
+    # SuffixException 조건에 맞는 열만 남기기(df_new2에 저장)
+    # 조건 : 입력된 모델의 country_suffix 정보가 맞지 않는거랑 '-'가 입력된 값
+
+    df_new2 = df_new1.loc[~df_new1.SuffixException.str.contains(country_suffix) | df_new.SuffixException.str.contains('-')]
+
+    # 조건에 맞는 PN 값들을 변수에 저장
+
+    side_PN = df_new2.iloc[0][0]
+    
+    # 모델 정보 및 적용되는 PN 값 출력
+    
+    print("입력된 모델의 정보는 아래와 같습니다")
+    print(f"모델명 : {model_suffix}")
+    print(f"인치 : {inch}inch")
+    print(f"의장 : {design_suffix}")
+    print(f"지역 : {region}")
+    print(f"Market : {market}")
+    print(f"Plant : {plant}({plant_remark})")
+    
+    print(f"적용되는 P/N는 {side_PN}입니다.")
+    print("*************************************")
+    
+    # 리스트에 자료 추가
+    inch_list.append(inch)
+    design_list.append(design_suffix)
+    region_list.append(region)
+    market_list.append(market)
+    plant_list.append(plant)
+    side_PN_list.append(side_PN)
+    
+# 입력받은 데이터를 다시 엑셀로 입력해준다.
+
+df_data['인치'] = inch_list
+df_data['의장'] = design_list
+df_data['지역'] = region_list
+df_data['Market'] = market_list
+df_data['Plant'] = plant_list
+df_data['Side_PN'] = side_PN_list
+df_data
+
+# 완성된 데이터 프레임을 엑셀 파일로 추출해준다.
+
+df_data.to_excel('output1.xlsx', index = False)
