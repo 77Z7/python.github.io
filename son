@@ -1,0 +1,163 @@
+import pandas as pd
+import streamlit as st
+import json
+
+#데이터 업로드
+uploaded_DBfile = st.file_uploader("DB 업로드", type=["xlsx"])
+if uploaded_DBfile is not None:
+    df1 = pd.read_excel(uploaded_DBfile)
+    df_sup_vol_guide = pd.read_excel(uploaded_DBfile, sheet_name = 'BOM suffix 정보')
+    df_color_pannel = pd.read_excel(uploaded_DBfile, sheet_name = '의장 정보')
+    df_module_info = pd.read_excel(uploaded_DBfile, sheet_name = '패널 정보')
+    df_series = pd.read_excel(uploaded_DBfile, sheet_name = '모델 정보')
+    df_Level1 = pd.read_excel(uploaded_DBfile, sheet_name = '지역 정보')
+
+# model_name = '55UR8000AUB.AUSYLHX'
+#model_name = '55UR8050PSB.KDGYLJA'
+model_name = st.text_area("모델명 입력 후 'Ctrl + Enter' ", "")
+
+st.write("모델명")
+st.write(model_name)
+
+# BOM suffix 정보 재정리
+df_sp = df_sup_vol_guide.iloc[3:, 1:10].reset_index(drop=True) #3번 row 부터, 1~10번 열까지 복사하고 인덱스 초기화
+df_sp.columns = ['지역','생산지','site1','site2','suffix','Country','Back cover color','BOM유형','비고'] #컬럼명 재설정
+df_sp['지역'] = df_sp.지역.fillna(method='ffill') #null처리, 직전값
+df_sp['생산지'] = df_sp.생산지.fillna(method='ffill') #null처리, 직전값
+
+print(df_sup_vol_guide)
+
+# 의장안 재정리
+df_col = df_color_pannel.iloc[3:4, 2:10].reset_index(drop=True) 
+df_col.columns = ['A','B','C','D','J','K','L','M'] #컬럼명 재설정
+print(df_color_pannel)
+
+# 패널 재정리
+df_pan = df_color_pannel.iloc[7:37, 1:4].reset_index(drop=True)
+df_pan.columns = ['인치','패널 suffix','패널사'] #컬럼명 재설정
+
+#모델 정보 재정리
+df_md = df_module_info.iloc[1:, 1:10].reset_index(drop=True) 
+df_md.columns = ['No','Site','supplier','모델 시리즈','리모컨 품번','상품화 Stand 품번','패널사','색상','벽걸이 품번'] #컬럼명 재설정
+print(df_module_info)
+
+#지역 정보 재정리
+df_LV1 = df_Level1.iloc[3:, 1:8].reset_index(drop=True) 
+df_LV1.columns = ['지역','suffix','품번','품번_Sub','Country','supply Type','비 고'] #컬럼명 재설정
+print(df_Level1)
+
+#공급유형 및 수량 Guide 정보 추출
+def compare_string(A:str, B:str):
+    if len(A)==len(B):
+        for i in range(len(A)):
+            if A[i] != B[i] and B[i] != '*':
+                return False
+        return True
+    else:
+        return False
+    
+model_suffix = model_name.split('.')[1] #모델명에서 suffix 추출
+
+df_sp['suffix_check'] = df_sp.suffix.apply(lambda x : compare_string(model_suffix, x ) )
+
+df_result1 = df_sp[df_sp['suffix_check']==True][['site1','site2', 'Back cover color', 'Country', 'BOM유형', '생산지']]
+
+#df_result1
+
+#Lv1 파트 정보 추출
+if model_name[:2] == '55' :
+    df_LV1['suffix_check'] = df_LV1.suffix.apply(lambda x : compare_string(model_suffix, x ) )
+else:
+    df_LV1['suffix_check'] = ''
+
+#모델시리즈 추출
+model_series = ""
+for (model_ser, sub_ser) in df_series[['모델 시리즈', '서브시리즈']].values:
+    if model_name.startswith(sub_ser):
+        model_series = model_ser
+        break
+
+#모델 정보 추출
+site1 = df_result1['site1'].astype(str).values[0]
+site2 = df_result1['site2'].astype(str).values[0]
+color = df_col[model_name[10]].values[0] ##11번째 자리 '색상'
+pannel_com= list(df_pan[(df_pan['인치'].astype('str')==model_name[:2]) & (df_pan['패널 suffix']==model_name[15])]['패널사'].values) ##16번째 자리 '패널'
+
+if 'nan' == site2 or (model_name[:2]== '86' and (model_suffix[0]in ['K', 'S'] and model_suffix[-1] == 'D')):
+    df_result2 = df_md[
+        (df_md['모델 시리즈']==model_series)
+          & (df_md['Site']==site1) 
+          & (df_md['색상']==color) 
+          & (df_md['패널사'].isin(pannel_com))]
+    
+elif model_name[:2]== '75' and (model_suffix[0]in ['K', 'S', 'N', 'Q'] and model_suffix[4] == 'D' and model_suffix[-1] == 'P')  :
+    df_result2 = df_md[ (df_md['모델 시리즈']==model_series)
+          & (df_md['Site']== 'MA_ISTA')
+          & (df_md['색상']==color) 
+          & (df_md['패널사'].isin(pannel_com))]
+
+elif model_name[:2]== '75' and (model_suffix[0]in ['K', 'S', 'N', 'Q'] and model_suffix[-1] == 'R')  :
+    df_result2 = df_md[ (df_md['모델 시리즈']==model_series)
+          & (df_md['Site']== "RS")
+          & (df_md['색상']==color) 
+          & (df_md['패널사'].isin(pannel_com))]
+
+elif model_name[:2]== '75' and model_suffix[1:3]in ['TV', 'TC', 'TS', 'PH', 'TM', 'TI'] : 
+    df_result2 = df_md[ (df_md['모델 시리즈']==model_series)
+          & (df_md['Site']== 'MX')
+          & (df_md['색상']==color) 
+          & (df_md['패널사'].isin(pannel_com))]
+    
+elif model_name[:2]== '70' and model_suffix[1:3]in ['TV', 'TC', 'TS', 'PH', 'TM', 'TI'] : 
+    df_result2 = df_md[ (df_md['모델 시리즈']==model_series)
+          & (df_md['Site']== 'IN')
+          & (df_md['색상']==color) 
+          & (df_md['패널사'].isin(pannel_com))]
+
+else:
+    df_result2 = df_md[
+        (df_md['모델 시리즈']==model_series)
+          & ((df_md['Site']==site1)
+            | (df_md['Site']==site2))
+          & (df_md['색상']==color) 
+          & (df_md['패널사'].isin(pannel_com))]
+    
+module_no = list(df_result2['상품화 Stand 품번'].values)
+
+#형명	패널사	모듈  품번1	모듈  품번2	색상	supply type	수량	포장방법	생산지
+#site1 기준으로 module 정보 추출
+
+df_temp = df_result2[(df_result2['Site']== site1) | (df_result2['Site']== "MA_ISTA") | (df_result2['Site']== "IN") | (df_result2['Site']== "MX") | (df_result2['Site']== "RS")]
+
+dict_result1 = {'BOM유형' :df_result1['BOM유형'].values[0]}
+dict_result2 = {'패널사': df_temp['패널사'].values[0]}
+dict_result3 = {'리포컨 품번': df_temp['리모컨 품번'].values[0]}
+dict_result4 = {'상품화 Stand 품번':df_result2['상품화 Stand 품번'].values[0]}
+dict_result5 = {'Stand 의장' : df_temp['색상'].values[0]}
+dict_result6 = {'B/C 의장' : df_result1['Back cover color'].values[0]}
+dict_result7 = {'판매지' : df_result1['Country'].values[0]}
+dict_result8 = {'생산지' : df_result1['생산지'].values[0]}
+
+#df_result2
+
+#df_result1
+
+
+styled_text1 = f"<div style='border: 2px solid black; padding: 10px'>{str(dict_result1)}</div>"
+styled_text2 = f"<div style='border: 2px solid black; padding: 10px'>{str(dict_result2)}</div>"
+styled_text3 = f"<div style='border: 2px solid black; padding: 10px'>{str(dict_result3)}</div>"
+styled_text4 = f"<div style='border: 2px solid black; padding: 10px'>{str(dict_result4)}</div>"
+styled_text5 = f"<div style='border: 2px solid black; padding: 10px'>{str(dict_result5)}</div>"
+styled_text6 = f"<div style='border: 2px solid black; padding: 10px'>{str(dict_result6)}</div>"
+styled_text7 = f"<div style='border: 2px solid black; padding: 10px'>{str(dict_result7)}</div>"
+styled_text8 = f"<div style='border: 2px solid black; padding: 10px'>{str(dict_result8)}</div>"
+
+
+st.markdown(styled_text1, unsafe_allow_html=True)
+st.markdown(styled_text2, unsafe_allow_html=True)
+st.markdown(styled_text3, unsafe_allow_html=True)
+st.markdown(styled_text4, unsafe_allow_html=True)
+st.markdown(styled_text5, unsafe_allow_html=True)
+st.markdown(styled_text6, unsafe_allow_html=True)
+st.markdown(styled_text7, unsafe_allow_html=True)
+st.markdown(styled_text8, unsafe_allow_html=True)
